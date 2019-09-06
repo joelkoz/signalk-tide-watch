@@ -44,3 +44,4 @@ that value.  You can limit the data used for depth watching to a specific device
 ## Roadmap
 - Add ability to use tide information to create a new "subordinate station" entry in the [XTide Json Server](https://github.com/joelkoz/xtwsd) database.
 - Refactor index.js to use Javascript `class` definition syntax
+- Refactor index.js into separate, smaller class modules

@@ -1,0 +1,29 @@
+{
+  "name": "signalk-tide-watch",
+  "version": "0.0.5",
+  "description": "Determines tide at current location when boat is at rest",
+  "main": "index.js",
+  "dependencies": {
+    "baconjs": "^1.0.1",
+    "binary-parser-encoder": "^1.4.4",
+    "geolib": "^3.0.4",
+    "structured-binary-file": "^0.0.6"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-react-app": "^3.1.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk",
+    "tide",
+    "prediction",
+    "nmea"
+  ],
+  "author": "Joel Kozikowski",
+  "license": "ISC"
+}

@@ -104,11 +104,11 @@ class TideWatchPlugin extends SignalKPlugin {
       }
 
       if (this.recordingData) {
-          if (!this.curTideDir) {
+          if (!this.tideInfo.curTideDir) {
              this.setStatus("Watching depth for tide phase...");
           }
           else {
-            this.setStatus(`Tracking phase '${this.curTidePhase}'`);
+            this.setStatus(`Tracking phase '${this.tideInfo.curTidePhase}'`);
           }
       }
       else {

@@ -128,6 +128,7 @@ var Location = function (_React$Component) {
         }
         _this2.setState({
           isLoaded: true,
+          error: null,
           data: data
         });
       }, function (error) {
@@ -219,18 +220,18 @@ var Location = function (_React$Component) {
           units = _state.units;
 
 
-      if (error) {
+      if (!isLoaded) {
+        return React.createElement(
+          "div",
+          null,
+          "Waiting for response from server..."
+        );
+      } else if (error) {
         return React.createElement(
           "div",
           null,
           "Error: ",
           error.message
-        );
-      } else if (!isLoaded) {
-        return React.createElement(
-          "div",
-          null,
-          "Waiting for response from server..."
         );
       } else if (!this.state.data.captureLocation) {
         return React.createElement(

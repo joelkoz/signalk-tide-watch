@@ -73,7 +73,7 @@ class MockApp {
 
     plugin.stop();
 
-    var status = plugin.getTideStatus();
+    var status = plugin.tideInfo.getTideStatus();
 
     console.log(JSON.stringify(status, null, 3));
 

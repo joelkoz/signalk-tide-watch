@@ -108,6 +108,7 @@ class Location extends React.Component {
               }
               this.setState({
                 isLoaded: true,
+                error: null,
                 data,
               });
             },
@@ -182,12 +183,12 @@ class Location extends React.Component {
       render() {
         const { error, isLoaded, data, editing, units } = this.state;
 
-        if (error) {
-          return <div>Error: {error.message}</div>;
-        } 
-        else if (!isLoaded) {
+        if (!isLoaded) {
           return <div>Waiting for response from server...</div>;
         }
+        else if (error) {
+          return <div>Error: {error.message}</div>;
+        } 
         else if (!this.state.data.captureLocation) {
           return (
             <div><h1>No current location data</h1></div>

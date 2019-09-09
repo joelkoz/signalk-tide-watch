@@ -11,7 +11,7 @@ class SignalKPlugin {
         this.id = id;
         this.name = name;
         this.description = description;
-        this._schema = { type: "object", properties: [] };
+        this._schema = { type: "object", properties: {} };
     }
 
 

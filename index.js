@@ -11,8 +11,6 @@ class TideWatchPlugin extends SignalKPlugin {
       super(app, 'signalk-tide-watch', 'Tide Watch', 'Observe tides automatically and predict future tides');
 
       this.captureLocation = null;
-
-      this.maxTideSwitchSlope = 0.00015;
     }
 
 

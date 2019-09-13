@@ -7,137 +7,30 @@ const SignalKPlugin = require('./SignalKPlugin.js');
 
 class TideWatchPlugin extends SignalKPlugin {
 
-    constructor(app) {
-      super(app, 'signalk-tide-watch', 'Tide Watch', 'Observe tides automatically and predict future tides');
+  constructor(app) {
+    super(app, 'signalk-tide-watch', 'Tide Watch', 'Observe tides automatically and predict future tides');
 
-      this.captureLocation = null;
-    }
+    this.captureLocation = null;
 
-
-  /**
-   * Called when the plugin is to start up
-   * @param {object} options 
-   * @param {function} restartPlugin 
-   */
-  start(options, restartPlugin) {
-    super.start(options, restartPlugin);
-
-    this.dataDir = this.app.getDataDirPath();
-    this.debug(`Data dir path is ${this.dataDir}`);
-    this.startedOn = -1;
-
-    this.locationManager = new LocationManager(this.dataDir, this.options.maxLocationDistance, this.debug.bind(this));
-
-    this.createAndSubscribeDataStreams();
-
-    this.debug('Tide plugin started');
-    this.startedOn = this.getTime();
-  };
-
-
-
-  /**
-   * Called when the plugin is to stop running.
-   */
-  stop() {
-    super.stop();
-
-    // Here we do additional cleanup...
-    this.debug('Tide plugin stopped');
-    delete this.locationManager;
-  };
-
-
-
-  // Registers paths that this plugin wants to respond to...
-  registerWithRouter(router) {
-
-      this.debug("Registering routes...");
-      router.get("/api/status", (req, res) => {
-          let j = this.tideInfo.getTideStatus();
-          j.recordingData = this.recordingData;
-          j.captureLocation = this.captureLocation;
-          j.recordingStartedAt = this.recordingStartedAt;
-          this.debug(`Returning JSON call ${JSON.stringify(j)}`)
-          res.json(j);
-      });
-
-      router.put("/api/location", (req, res) => {
-          try {
-            this.debug("PUT request!")
-            let loc = req.body;
-            if (this.captureLocation && this.captureLocation.id == loc.id) {
-                this.debug(`Location save for: ${JSON.stringify(loc)}`);
-                this.locationManager.saveLocation(loc);
-                this.captureLocation = loc;
-                res.json({ status: "OK" });
-            }
-            else {
-               throw new Error("Save location does not match current location");
-            }
-          }
-          catch (error) {
-            this.debug(`Error saving location: ${err}`);
-            res.status(500).json({ status: "ERROR", error });
-          }
-      });
-  }
-  
-
-  // Updates the status on the admin console
-  updateStatus(timer) {
-      if (this.startedOn < 0) {
-          this.setStatus("Starting...");
-      }
-      else if ((timer - this.startedOn) > 30000) {
-
-        if (!this.lastDepthReceived ||
-              (timer - this.lastDepthReceived) > this.options.depthDataTimeout * 1000) {
-              this.setError("No depth data available");
-              return;
-        }
-        else if (!this.lastPosReceived ||
-          (timer - this.lastPosReceived) > this.options.posDataTimeout * 1000) {
-          this.setError("No position data available");
-          return;
-        }
-      }
-
-      if (this.recordingData) {
-          if (!this.tideInfo.curTideDir) {
-             this.setStatus("Watching depth for tide phase...");
-          }
-          else {
-            this.setStatus(`Tracking phase '${this.tideInfo.curTidePhase}'`);
-          }
-      }
-      else {
-          if (!this.running) {
-            this.setStatus("Stopped");
-          }
-          else {
-            this.setStatus("Engine on - not tracking");
-          }
-      }
-     
+    this.optStr('depthPath', 'Depth measurement SignalK path', 'environment.depth.belowSurface');
+    this.optStr('depthSourceType', 'Depth source Type filter', '');
+    this.optNum('depthSamplesInAverage', 'Number of depth readings in average', 60, false, 'The number of readings in the moving average of depths used for tide phase tracking.');
+    this.optStr('depthSourceTalker', 'Depth source Talker filter', '');
+    this.optNum('depthDataTimeout', 'Seconds before depth data timeout', 30);
+    this.optStr('posPath', 'GPS position SignalK path', 'navigation.position');
+    this.optNum('posDataTimeout', 'Seconds before position data timeout', 30);
+    this.optStr('engineRPMPath', 'Engine running SignalK path', 'propulsion.1.revolutions');
+    this.optNum('recordDataInterval', 'Minutes between depth samples', 5, false, 'The number of minutes between each average depth check when determining tide phase');
+    this.optNum('maxLocationDistance', 'Max location distance', 100, false, 'Max meters between two points for them to be considered in the same location.');
   }
 
 
-  /**
+/**
    * Create the BaconJS data streams and properties used by this plugin
    */
-  createAndSubscribeDataStreams() {
-      // Returns TRUE if str does not have any contents (ie. is empty, null or undefined)
-      function strEmpty(str) {
-        return (!str || 0 === str.trim().length);
-      }
+  onPluginStarted() {
 
-      // Returns TRUE if the specified configItem matches the specified configVal. An
-      // empty configVal is a wildcard that matches any value of configItem
-      function configMatch(configItem, configVal) {
-          return (strEmpty(configVal) || configItem == configVal);
-      }
-
+      this.locationManager = new LocationManager(this.dataDir, this.options.maxLocationDistance, this.debug.bind(this));
 
       // 15 second heartbeat for checking if data has been received.
       var heartbeatInterval = 15000;
@@ -157,8 +50,8 @@ class TideWatchPlugin extends SignalKPlugin {
       this.evtDepth = this.getSKBus(this.options.depthPath);
 
       this.evtDepthVal = this.evtDepth
-          .filter(dbs => {  return configMatch(dbs.source.type, this.options.depthSourceType) &&
-                                  configMatch(dbs.source.talker, this.options.depthSourceTalker); 
+          .filter(dbs => {  return this.wildcardEq(dbs.source.type, this.options.depthSourceType) &&
+                                   this.wildcardEq(dbs.source.talker, this.options.depthSourceTalker); 
                           } )
           .map(".value");
 
@@ -281,15 +174,94 @@ class TideWatchPlugin extends SignalKPlugin {
   }
 
 
+  onPluginStopped() {
+    // Here we do additional cleanup...
+    delete this.locationManager;
+    delete this.tideInfo;
+  };
 
-  // Returns the current time in milliseconds. Call this
-  // whenever time is needed to allow for simulations/unit
-  // tests to run.
-  getTime() {
-    return new Date().getTime();
+
+
+  // Registers paths that this plugin wants to respond to...
+  registerWithRouter(router) {
+
+      this.debug("Registering routes...");
+      router.get("/api/status", (req, res) => {
+          if (this.running) {
+            let j = this.tideInfo.getTideStatus();
+            j.recordingData = this.recordingData;
+            j.captureLocation = this.captureLocation;
+            j.recordingStartedAt = this.recordingStartedAt;
+            this.debug(`Returning JSON call ${JSON.stringify(j)}`)
+            res.json(j);
+          }
+          else {
+            res.status(503).send('Plugin not running');
+          }
+      });
+
+      router.put("/api/location", (req, res) => {
+          try {
+            this.debug("PUT request!")
+            let loc = req.body;
+            if (this.captureLocation && this.captureLocation.id == loc.id) {
+                this.debug(`Location save for: ${JSON.stringify(loc)}`);
+                this.locationManager.saveLocation(loc);
+                this.captureLocation = loc;
+                res.json({ status: "OK" });
+            }
+            else {
+               throw new Error("Save location does not match current location");
+            }
+          }
+          catch (error) {
+            this.debug(`Error saving location: ${err}`);
+            res.status(500).json({ status: "ERROR", error });
+          }
+      });
+  }
+  
+
+  // Updates the status on the admin console
+  updateStatus(timer) {
+      if (this.startedOn < 0) {
+          this.setStatus("Starting...");
+      }
+      else if ((timer - this.startedOn) > 30000) {
+
+        if (!this.lastDepthReceived ||
+              (timer - this.lastDepthReceived) > this.options.depthDataTimeout * 1000) {
+              this.setError("No depth data available");
+              return;
+        }
+        else if (!this.lastPosReceived ||
+          (timer - this.lastPosReceived) > this.options.posDataTimeout * 1000) {
+          this.setError("No position data available");
+          return;
+        }
+      }
+
+      if (this.recordingData) {
+          if (!this.tideInfo.curTideDir) {
+             this.setStatus("Watching depth for tide phase...");
+          }
+          else {
+            this.setStatus(`Tracking phase '${this.tideInfo.curTidePhase}'`);
+          }
+      }
+      else {
+          if (!this.running) {
+            this.setStatus("Stopped");
+          }
+          else {
+            this.setStatus("Engine on - not tracking");
+          }
+      }
+     
   }
 
 
+  
   // Called when recording of depth data should start
   startRecording(data) {
 
@@ -336,6 +308,7 @@ class TideWatchPlugin extends SignalKPlugin {
            this.tideInfo.resetPhaseTracking();
         }
     }
+
   }
 
   
@@ -498,65 +471,65 @@ class TideWatchPlugin extends SignalKPlugin {
   }
 
   // The plugin schema
-  schema() { 
-    return { type: 'object',
-              properties: {
-                depthPath: {
-                  type: 'string',
-                  title: 'Depth measurement SignalK path',
-                  default: 'environment.depth.belowSurface'
-                },
-                depthSourceType: {
-                  type: 'string',
-                  title: 'Depth source Type filter',
-                  default: ''
-                },
-                depthSamplesInAverage: {
-                  type: 'number',
-                  title: 'Number of depth readings in average',
-                  description: 'The number of readings in the moving average of depths used for tide phase tracking.',
-                  default: 60
-                },
-                depthSourceTalker: {
-                  type: 'string',
-                  title: 'Depth source Talker filter',
-                  default: ''
-                },
-                depthDataTimeout: {
-                  type: 'number',
-                  title: 'Seconds before depth data timeout',
-                  default: 30
-                },
-                posPath: {
-                  type: 'string',
-                  title: 'GPS position SignalK path',
-                  default: 'navigation.position'
-                },
-                posDataTimeout: {
-                  type: 'number',
-                  title: 'Seconds before position data timeout',
-                  default: 30
-              },
-                engineRPMPath: {
-                  type: 'string',
-                  title: 'Engine running SignalK path',
-                  default: 'propulsion.1.revolutions'
-                },
-                recordDataInterval: {
-                  type: 'number',
-                  title: 'Minutes between depth samples',
-                  description: 'The number of minutes between each average depth check when determining tide phase',
-                  default: 5
-                },
-                maxLocationDistance: {
-                  type: 'number',
-                  title: 'Max location distance',
-                  description: 'Max meters between two points for them to be considered in the same location.',
-                  default: 100
-                }
-              }    
-            };
-  }
+  // schema() { 
+  //   return { type: 'object',
+  //             properties: {
+  //               depthPath: {
+  //                 type: 'string',
+  //                 title: 'Depth measurement SignalK path',
+  //                 default: 'environment.depth.belowSurface'
+  //               },
+  //               depthSourceType: {
+  //                 type: 'string',
+  //                 title: 'Depth source Type filter',
+  //                 default: ''
+  //               },
+  //               depthSamplesInAverage: {
+  //                 type: 'number',
+  //                 title: 'Number of depth readings in average',
+  //                 description: 'The number of readings in the moving average of depths used for tide phase tracking.',
+  //                 default: 60
+  //               },
+  //               depthSourceTalker: {
+  //                 type: 'string',
+  //                 title: 'Depth source Talker filter',
+  //                 default: ''
+  //               },
+  //               depthDataTimeout: {
+  //                 type: 'number',
+  //                 title: 'Seconds before depth data timeout',
+  //                 default: 30
+  //               },
+  //               posPath: {
+  //                 type: 'string',
+  //                 title: 'GPS position SignalK path',
+  //                 default: 'navigation.position'
+  //               },
+  //               posDataTimeout: {
+  //                 type: 'number',
+  //                 title: 'Seconds before position data timeout',
+  //                 default: 30
+  //             },
+  //               engineRPMPath: {
+  //                 type: 'string',
+  //                 title: 'Engine running SignalK path',
+  //                 default: 'propulsion.1.revolutions'
+  //               },
+  //               recordDataInterval: {
+  //                 type: 'number',
+  //                 title: 'Minutes between depth samples',
+  //                 description: 'The number of minutes between each average depth check when determining tide phase',
+  //                 default: 5
+  //               },
+  //               maxLocationDistance: {
+  //                 type: 'number',
+  //                 title: 'Max location distance',
+  //                 description: 'Max meters between two points for them to be considered in the same location.',
+  //                 default: 100
+  //               }
+  //             }    
+  //           };
+  // }
 
 
 

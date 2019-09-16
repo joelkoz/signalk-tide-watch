@@ -35,7 +35,7 @@ function localDepth(depth, units) {
 
 // Component to output the phase data in the "phase" attribute
 function OutputPhase(props) {
-   if (props.phase.timer) {
+   if (props.phase && props.phase.timer) {
       return (
         <div className="phase">
         <div>{props.header}</div>

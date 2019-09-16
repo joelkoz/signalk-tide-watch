@@ -2,7 +2,7 @@ const Bacon = require('baconjs');
 const { TideAnalyzer, msPhaseLength } = require('./TideAnalysis.js');
 const LocationManager = require('./LocationManager.js');
 const DBDepthLog = require('./DBDepthLog.js');
-const SignalKPlugin = require('./SignalKPlugin.js');
+const SignalKPlugin = require('signalk-plugin-base');
 
 
 class TideWatchPlugin extends SignalKPlugin {

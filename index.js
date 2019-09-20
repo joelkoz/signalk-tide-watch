@@ -14,8 +14,8 @@ class TideWatchPlugin extends SignalKPlugin {
 
     this.optStr('depthPath', 'Depth measurement SignalK path', 'environment.depth.belowSurface');
     this.optStr('depthSourceType', 'Depth source Type filter', '');
-    this.optNum('depthSamplesInAverage', 'Number of depth readings in average', 60, false, 'The number of readings in the moving average of depths used for tide phase tracking.');
     this.optStr('depthSourceTalker', 'Depth source Talker filter', '');
+    this.optNum('depthSamplesInAverage', 'Number of depth readings in average', 60, false, 'The number of readings in the moving average of depths used for tide phase tracking.');
     this.optNum('depthDataTimeout', 'Seconds before depth data timeout', 30);
     this.optStr('posPath', 'GPS position SignalK path', 'navigation.position');
     this.optNum('posDataTimeout', 'Seconds before position data timeout', 30);

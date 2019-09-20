@@ -31,7 +31,9 @@ function TimeString(props) {
 
 // Convert depth to display value based on units
 function localDepth(depth, units) {
-  if (units === "f") {
+  if (typeof depth === 'undefined' || depth == null) {
+    return '';
+  } else if (units === "f") {
     return (depth * 3.28084).toFixed(2) + " ft";
   } else {
     return depth.toFixed(2) + " m";
@@ -54,6 +56,12 @@ function OutputPhase(props) {
         null,
         "Time: ",
         React.createElement(TimeString, { timer: props.phase.timer })
+      ),
+      React.createElement(
+        "div",
+        null,
+        "Wave height: ",
+        localDepth(props.phase.waveHeight, props.units)
       ),
       React.createElement(
         "div",
@@ -316,6 +324,12 @@ var Location = function (_React$Component) {
                 "Meters"
               )
             )
+          ),
+          React.createElement(
+            "div",
+            { className: "info" },
+            "Current depth offset: ",
+            localDepth(data.curTideOffset, units)
           ),
           React.createElement(OutputPhase, { header: "Last low tide", phase: data.lowestKnown, units: units }),
           React.createElement(OutputPhase, { header: "Next low tide", phase: data.nextLowestKnown, units: units }),

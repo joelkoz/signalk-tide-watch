@@ -21,7 +21,8 @@ class TideWatchPlugin extends SignalKPlugin {
     this.optNum('posDataTimeout', 'Seconds before position data timeout', 30);
     this.optStr('engineRPMPath', 'Engine running SignalK path', 'propulsion.1.revolutions');
     this.optNum('recordDataInterval', 'Minutes between depth samples', 5, false, 'The number of minutes between each average depth check when determining tide phase');
-    this.optNum('maxLocationDistance', 'Max location distance', 100, false, 'Max meters between two points for them to be considered in the same location.');
+    this.optNum('maxLocationDistance', 'Max location distance', 100, false, 'Max meters between two points for them to be considered in the same general location.');
+    this.optNum('maxPosChange', 'Max pos change for depth readings', 25, false, 'Max meters between two points for depth readings in the same tide phase to be considered reliable.');
   }
 
 
@@ -79,7 +80,7 @@ class TideWatchPlugin extends SignalKPlugin {
       this.subscribeVal(this.evtTidePhase, data => { this.debug(`Tide phase: ${JSON.stringify(data)}`) } );
       this.subscribeVal(this.evtTidePhase, this.onTidePhase );
 
-      this.tideInfo = new TideAnalyzer(this.evtTidePhase, this.options.recordDataInterval, this.debug.bind(this));
+      this.tideInfo = new TideAnalyzer(this.evtTidePhase, this.options.recordDataInterval, this.options.maxPosChange, this.debug.bind(this));
 
       // GPS Position -------------------------------------------------------------------------------------
       this.evtPos = this.getSKBus(this.options.posPath);
@@ -296,11 +297,11 @@ class TideWatchPlugin extends SignalKPlugin {
             this.tideInfo.highestKnown = {};
         }
 
-        // If the latest known phase occurred within the last seven hours
+        // If the latest known phase occurred within the last 6.5 hours
         // can just report it. Otherwise, we need to start tracking
         // again...
-        let _7HoursAgo = this.getTime() - 7 * 60 * 60 * 1000;
-        if (this.tideInfo.lastPhaseReport.timer > _7HoursAgo) {
+        const _6HoursAgo = this.getTime() - 6.5 * 60 * 60 * 1000;
+        if (this.tideInfo.lastPhaseReport.timer > _6HoursAgo) {
           this.evtTidePhase.push(this.tideInfo.lastPhaseReport);
         }
         else {

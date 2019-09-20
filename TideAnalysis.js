@@ -1,3 +1,5 @@
+const geolib = require('geolib');
+
 // The next tide phase will occur, on average 12 hours 25 minutes after the last phase...
 const msPhaseLength = (12 * 60 + 25) * 60 * 1000;
 
@@ -6,9 +8,10 @@ const msPhaseLength = (12 * 60 + 25) * 60 * 1000;
  */
 class TideAnalyzer {
 
-    constructor(evtTidePhase, recordDataInterval, fnDebug) {
+    constructor(evtTidePhase, recordDataInterval, maxPosChange, fnDebug) {
         this.evtTidePhase = evtTidePhase;
         this.recordDataInterval = recordDataInterval;
+        this.maxPosChange = maxPosChange;
         this.debug = fnDebug;
     }
 
@@ -20,11 +23,7 @@ class TideAnalyzer {
         this.highestKnown = {};
     
         this.lastPhaseReport = null;
-    
-        // For "average low tide" calculations...
-        this.totalLowTideDepths = 0.0;
-        this.totalLowTideSamples = 0;
-    
+   
         this.resetPhaseTracking();
     }
 
@@ -65,14 +64,17 @@ class TideAnalyzer {
             status.nextHighestKnown = {};
             status.nextHighestKnown.timer = this.getFuturePhase(this.highestKnown.timer);
             status.nextHighestKnown.depth = this.highestKnown.depth;
+            status.nextHighestKnown.waveHeight = this.highestKnown.waveHeight;
         }
 
         if (this.lowestKnown && this.lowestKnown.timer) {
             status.nextLowestKnown = {};
             status.nextLowestKnown.timer = this.getFuturePhase(this.lowestKnown.timer);
             status.nextLowestKnown.depth = this.lowestKnown.depth;
+            status.nextLowestKnown.waveHeight = this.lowestKnown.waveHeight;
         }
 
+        status.curTideOffset = this.estimateTideHeightNow(this.getTime());
         return status;
     }
 
@@ -132,6 +134,10 @@ class TideAnalyzer {
     }
   
 
+    _hoursDiff(timer1, timer2) {
+        return Math.abs(timer1 - timer2) / (1000 * 60 * 60);
+    }
+
     /**
      * Called every time a new data point is to be added to the analysis.
      * @param {object} data Data object that must include {timer, depth }
@@ -151,7 +157,8 @@ class TideAnalyzer {
         // Once we have collected at least 30 minutes of data, we can do some analysis...
         if (this.prevData.length >= 30 / this.recordDataInterval) {
 
-            // Pull data from 30 minutes ago off the front of the FIFO queue...
+            // Pull data from 30 minutes ago off the front of the FIFO queue so
+            // we can compare depths "then and now"...
             var prev = this.prevData.shift();
 
             this.curTideDir = this.slope(prev.timer, prev.depth, data.timer, data.depth) * 100000.0;
@@ -168,10 +175,11 @@ class TideAnalyzer {
                 this.depthTrend = this.findDepthTrend();
                 if (this.depthTrend != 0) {
 
-                    // We have a definitive now!
+                    // We have a definitive trend now...
                     this.debug(`Current phase determined as ${this.depthTrend == -1 ? "ebb" : "flood"}`);
 
                     if (this.depthTrend != this.lastKnownTrend) {
+                        // Our trend is now different! We have an official phase switch.
                         this.debug('\nNew phase established')
                         this.lastKnownTrend = this.depthTrend;
                         this.phaseSwitchCount++;
@@ -180,26 +188,36 @@ class TideAnalyzer {
                         if (this.depthTrend == -1) {
                             phase = "ebb";
                             this.curTidePhase = phase;
-                            // We have gone from flood to ebb, so
-                            // we must have found the actual high tide...
-                            if (this.phaseSwitchCount > 1) {
+                            if (this.phaseSwitchCount >= 2) {
+                                // We have gone from flood to ebb on
+                                // our watch.  We know we've seen
+                                // the highest depth, so save it...
                                 this.highestKnown.depth = this.highestTide.depth;
                                 this.highestKnown.timer = this.highestTide.timer;
+                                let hrDiff = this._hoursDiff(this.highestKnown.timer, this.lowestKnown.timer);
+                                if (hrDiff > 5.5 && hrDiff < 13) {
+                                    this.highestKnown.waveHeight = this.highestKnown.depth - this.lowestKnown.depth;
+                                }
                             }
+                            // We are now in search of a new low tide
                             this.lowestTide.depth = 99999;
                         }
                         else {
                             phase = "flood";
                             this.curTidePhase = phase;
     
-                            // We have gone from ebb to flood, so we
-                            // are in search of a new high tide...
-                            if (this.phaseSwitchCount > 1) {
+                            if (this.phaseSwitchCount >= 2) {
+                                // We have gone from ebb to flood on our
+                                // watch. We know we've seen the lowest,
+                                // so save it...
                                 this.lowestKnown.depth = this.lowestTide.depth;
                                 this.lowestKnown.timer = this.lowestTide.timer;
-                                this.totalLowTideDepths += this.lowestTide.depth;
-                                this.totalLowTideSamples++;
+                                let hrDiff = this._hoursDiff(this.highestKnown.timer, this.lowestKnown.timer);
+                                if (hrDiff > 5.5 && hrDiff < 13) {
+                                    this.lowestKnown.waveHeight = this.lowestKnown.depth - this.highestKnown.depth;
+                                }
                             }
+                            // We are now in search of a new high tide...
                             this.highestTide.depth = -1;
                         }
             
@@ -222,15 +240,16 @@ class TideAnalyzer {
             }
         }
 
-
         if (data.depth < this.lowestTide.depth) {
             this.lowestTide.depth = data.depth;
             this.lowestTide.timer = data.timer;
+            this.lowestTide.pos = data.pos;
         }
 
         if (data.depth > this.highestTide.depth) {
             this.highestTide.depth = data.depth;
             this.highestTide.timer = data.timer;
+            this.highestTide.pos = data.pos;
         }
 
         this.tideSampleCount++;
@@ -242,36 +261,27 @@ class TideAnalyzer {
     estimateTideHeightNow(now) {
 
         if (this.lastPhaseReport && 
-            this.totalLowTideSamples > 0 &&
             this.lastPhaseReport.highestKnown.timer &&
             this.lastPhaseReport.lowestKnown.timer) {
 
-            // Compute an average low tide. This is a piss poor estimate for LAT,
-            // but it will have to do.  The results are still useful...
-            let avgLow = this.totalLowTideDepths / this.totalLowTideSamples;
-
-            // What is our observed change between high and low?
-            let lowDepth = this.lastPhaseReport.lowestKnown.depth;
-            let highDepth = this.lastPhaseReport.highestKnown.depth;
-            let halfWaveHeight =  (highDepth - lowDepth) / 2;
-            let midWave = lowDepth + halfWaveHeight;
-
+            let waveHeight;
+            
             var radians;
             if (this.curTidePhase === "ebb") {
                 let msElapsed = now - this.lastPhaseReport.highestKnown.timer;
                 let pctElapsed = msElapsed / msPhaseLength;
                 radians = pctElapsed * Math.PI;
+                waveHeight =  Math.abs(this.lastPhaseReport.lowestKnown.waveHeight);
             }
             else if (this.curTidePhase === "flood") {
                 let msElapsed = now - this.lastPhaseReport.lowestKnown.timer;
                 let pctElapsed = msElapsed / msPhaseLength;
                 radians = (pctElapsed * Math.PI) + Math.PI;
+                waveHeight =  this.lastPhaseReport.highestKnown.waveHeight;
             }
-            let estHeight = (halfWaveHeight * Math.cos(radians)) + midWave;
-            let estTideOffset = estHeight - avgLow;
+            let estHeight = (waveHeight * (Math.cos(radians) + 1) / 2);
 
-            return estTideOffset;
-
+            return estHeight;
         }
         
         // If we get here, we have failed to pass the many requirements needed

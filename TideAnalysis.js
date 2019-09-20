@@ -151,6 +151,21 @@ class TideAnalyzer {
 
         this.lastReading = data.timer;
 
+        if (this.trackingPos) {
+            // Check to make sure we are still close enough to our original tracking
+            // position to keep reading the same data...
+            let dist = geolib.getDistance(this.trackingPos, data.pos);
+            if (dist > this.maxPosChange) {
+                this.debug(`Position has changed by ${dist}. Resetting tracking...`);
+                this.resetPhaseTracking()
+                this.trackingPos = data.pos;
+            }
+        }
+        else {
+            this.trackingPos = data.pos;
+        }
+
+
         // Push this most recent sample on to the queue for later use...
         this.prevData.push(data);
 

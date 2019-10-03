@@ -1,7 +1,7 @@
 const geolib = require('geolib');
 
-// The next tide phase will occur, on average 12 hours 25 minutes after the last phase...
-const msPhaseLength = (12 * 60 + 25) * 60 * 1000;
+// The next tide phase will occur, on average 6 hours 12.5 minutes after the last phase...
+const msPhaseLength = (6 * 60 + 12.5) * 60 * 1000;
 
 /**
  * A class for analyzing depth recordings, turning them into workable tide information.
@@ -91,8 +91,9 @@ class TideAnalyzer {
     getFuturePhase(timer) {
         let nextPhase = timer;
         let now = this.getTime();
+        let msCycleLength = msPhaseLength * 2;
         while (nextPhase < now) {
-            nextPhase += msPhaseLength;
+            nextPhase += msCycleLength;
         } // while
         return nextPhase;
     }

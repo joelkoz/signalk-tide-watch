@@ -1,5 +1,5 @@
 const Plugin = require('./index.js');
-const MockApp = require('.mocks.js').MockApp;
+const MockApp = require('./mocks.js').MockApp;
 
 
 (function() {
@@ -18,9 +18,9 @@ const MockApp = require('.mocks.js').MockApp;
 
     plugin.stopRecording();
 
-    plugin.stop();
-
     var status = plugin.tideInfo.getTideStatus();
+
+    plugin.stop();
 
     console.log(JSON.stringify(status, null, 3));
 

@@ -1,14 +1,14 @@
 {
   "name": "signalk-tide-watch",
-  "version": "0.0.8",
+  "version": "1.0.0",
   "description": "Determines tide at current location when boat is at rest",
   "main": "index.js",
   "dependencies": {
     "baconjs": "^1.0.1",
-    "binary-parser-encoder": "^1.4.4",
+    "binary-parser-encoder": "^1.5.3",
     "geolib": "^3.0.4",
-    "signalk-plugin-base": "^1.0.0",
-    "structured-binary-file": "^1.0.0"
+    "signalk-plugin-base": "^1.4.0",
+    "structured-binary-file": "^1.0.1"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",

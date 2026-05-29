@@ -145,7 +145,7 @@ class TideWatchPlugin extends SignalKPlugin {
                                                 this.propAvgDepth, 
                                                 this.propPos)
                                   .sampledBy(this.evt1min)
-                                  .filter(".depth")
+                                  .filter(data => data.depth !== undefined && data.depth !== null)
                                   .filter(data => { return this.recordingData; });
 
       this.propDepthData = this.evtDataReady.toProperty();

@@ -1,6 +1,6 @@
 {
   "name": "signalk-tide-watch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Determines tide at current location when boat is at rest",
   "main": "index.js",
   "dependencies": {
